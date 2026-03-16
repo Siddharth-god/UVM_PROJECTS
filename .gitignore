@@ -1,0 +1,14 @@
+work/
+Ignore_it/
+Backup/
+FIFO_RTL_TB/
+Some_Vimp_Notes/
+Unwanted_codes/
+transcript
+*.vcd
+*.vstf
+*.log
+*.wlf
+*.ucdb
+
+.vscode/
