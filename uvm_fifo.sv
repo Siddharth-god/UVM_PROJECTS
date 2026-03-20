@@ -75,14 +75,14 @@ interface fifo_if #(parameter WIDTH = fifo_pkg::WIDTH)(input bit clk);
     logic empty;
 
     clocking wr_drv_cb@(posedge clk);
-        default input #1 output #1; 
+        //default input #1 output #1; --> Input skew is #1 means sample #1 after posedge, and drive after #1 after posedge.
         output  rstn;
         output  write;
         output  data_in;
     endclocking 
 
     clocking wr_mon_cb@(posedge clk);
-        default input #1 output #1; 
+        //default input #1 output #1; --> By default the skew is : input skew #1 and output is #0
         input  rstn;
         input  write;
         input  data_in;   
@@ -91,16 +91,16 @@ interface fifo_if #(parameter WIDTH = fifo_pkg::WIDTH)(input bit clk);
     endclocking 
 
     clocking rd_drv_cb@(posedge clk);
-        default input #1 output #1; 
-        input  rstn; // why input check one more time. 
+        //default input #1 output #1; --> But sample actually happens after edge mens we get the DUT output one cycle later. 
+        input  rstn; // why input ? --> Because reset can only be driven by one driver, another driver only observes it and uses it.  
         output read;  
     endclocking
 
     clocking rd_mon_cb@(posedge clk);
-        default input #1 output #1; 
-        input  rstn;
+        //default input #1 output #1; --> So, when we add #0 to any signal that signal will be outputted at posedge, and sampling happens in observed region no race condition occurs 
+        input rstn;
         input read;
-        input data_out;
+        input #0 data_out;
         input full;
         input empty;    
     endclocking
@@ -166,16 +166,6 @@ class seq_base extends uvm_sequence #(xtn);
     function new(string name="seq_base");
         super.new(name);
     endfunction 
-/*
-    task body();
-        repeat(20) begin 
-            req = xtn::type_id::create("req");
-            start_item(req);
-            assert(req.randomize());
-            finish_item(req);
-        end
-    endtask 
-*/
 endclass    
 
 // only write / burst write
@@ -630,11 +620,12 @@ endclass
 
 // Scoreboard -------------------------------------------------------------------------------
 
-class sb extends uvm_scoreboard;
-
+class sb extends uvm_scoreboard; 
     `uvm_component_utils(sb)
-
-    bit [WIDTH-1:0] exp_op;
+    xtn rd_xtn;
+    xtn wr_xtn; 
+    xtn ref_data[$];
+    xtn pop_ref;
 
     uvm_tlm_analysis_fifo #(xtn) fifo_rd;
     uvm_tlm_analysis_fifo #(xtn) fifo_wr;
@@ -643,53 +634,48 @@ class sb extends uvm_scoreboard;
         super.new(name,parent);
         fifo_rd = new("fifo_rd",this);
         fifo_wr = new("fifo_wr",this);
-    endfunction 
-
-    bit [WIDTH-1:0] ref_data [$];
-
-    
-    function void exp_out(ref xtn wr_xtn_h, xtn rd_xtn_h);
-        
-        // queue logic -- ref logic 
-        if(wr_xtn_h.write)
-            ref_data.push_back(wr_xtn_h.data_in);
-
-        if(ref_data.size() > 0 && rd_xtn_h.read) // without using read also we get correct pop, coz monitor only samples when read is high. Means comparision won't happen unless read is hign means pop won't happen unless read is high. so no need to give read here.
-            exp_op = ref_data.pop_front();
-        
     endfunction
 
-    task run_phase(uvm_phase phase);
-        xtn wr_mon_xtn;
-        xtn rd_mon_xtn;
+    function void ref_model(xtn local_wrxtn);
+        if(local_wrxtn.write)
+            ref_data.push_back(local_wrxtn);
+    endfunction 
 
-    forever begin 
-        fifo_rd.get(rd_mon_xtn);
-        fifo_wr.get(wr_mon_xtn);
-
-        if(exp_op == rd_mon_xtn.data_out) begin 
-            `uvm_info(get_type_name(),
-                            $sformatf("\n[---Data Match successful---] ==> DATA IN = %0d READ = %0d WRITE = %0d RESET = %0d ==> [ DATA OUT = EXP OUT ] : [%0d = %0d]\n",
-                                    wr_mon_xtn.data_in,
-                                    rd_mon_xtn.read,
-                                    wr_mon_xtn.write,
-                                    wr_mon_xtn.rstn,
-                                    rd_mon_xtn.data_out,
-                                    exp_op),
-                            UVM_LOW)
+    function void pop_here(xtn local_rdxtn);
+        if(local_rdxtn.read) begin 
+            pop_ref = ref_data.pop_front();  
+            $display("---------pop_expected_ref----------|| data_in = %0d",pop_ref.data_in);
         end
-        else 
-                `uvm_error(get_type_name(), $sformatf(
-                            "\n\nScoreboard Error [Data Mismatch]: \n Received Transaction: %d \n Expected Transaction: %d\n",
-                            rd_mon_xtn.data_out, exp_op));
+    endfunction
+    
+    task run_phase(uvm_phase phase);
+        fork
+            forever begin
+                fifo_wr.get(wr_xtn);
+                $display("/////////// get write mon data /////////// data_in=%0d | rstn=%0d | write=%0d",
+                            wr_xtn.data_in, wr_xtn.rstn, wr_xtn.write);
+                ref_model(wr_xtn);
 
+            end
+            forever begin
+                fifo_rd.get(rd_xtn);
+                $display("/////////// get read mon data /////////// data_out=%0d | read=%0d | full=%0d | empty=%0d",
+                            rd_xtn.data_out, rd_xtn.read, rd_xtn.full, rd_xtn.empty);
+                pop_here(rd_xtn);
 
-                exp_out(wr_mon_xtn, rd_mon_xtn);
-    end
+                if(!(pop_ref.data_in == rd_xtn.data_out))
+                    `uvm_error(get_type_name(), $sformatf(
+                                    "\n\nScoreboard Error [Data Mismatch]: \n Received Transaction: %d \n Expected Transaction: %d\n",
+                                    rd_xtn.data_out, pop_ref.data_in))
+                else 
+                    `uvm_info(get_type_name(),$sformatf("\n\n Scoreboard Success [Data Match Successfully] ==> [ DATA OUT = EXP OUT ] : [%0d = %0d]\n",
+                        rd_xtn.data_out, pop_ref.data_in),
+                        UVM_LOW)
+            end
+        join
 
-    endtask
-
-endclass 
+    endtask 
+endclass
 // Environment -------------------------------------------------------------------------------
 class env extends uvm_env;
     `uvm_component_utils(env)
