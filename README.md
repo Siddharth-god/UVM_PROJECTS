@@ -165,36 +165,36 @@ After comparison → update expected for next cycle
 
 #### Example
 
-```systemverilog
-// exp_data holds previous expected value (initialized to 0)
+```bash
+# exp_data holds previous expected value (initialized to 0)
 
-// Key Observation:
-// DUT output is effectively 1 cycle behind inputs
+# Key Observation:
+DUT output is effectively 1 cycle behind inputs
 
-// Timeline:
-// @100 → Inputs applied
-//         Output corresponds to @90 inputs
+#Timeline:
+    @100 → Inputs applied
+         Output corresponds to @90 inputs
 
-// @110 → Inputs applied
-//         Output corresponds to @100 inputs
+    @110 → Inputs applied
+         Output corresponds to @100 inputs
 
-// So:
-// Current output = result of previous cycle input
-// Therefore:
-// Compare with previous expected, then update expected
+# So:
+    Current output = result of previous cycle input
+    Therefore:
+    Compare with previous expected, then update expected
 
-// First comparison:
-// exp_data = 0 (default)
-// DUT also outputs 0 initially
-// → Match
+# First comparison:
+    exp_data = 0 (default)
+    DUT also outputs 0 initially
+    → Match
 
-// Compare first
-if(exp_data != rd_xtn.data_out)
-    `uvm_error("SB", $sformatf("EXP=%0d ACT=%0d", exp_data, rd_xtn.data_out));
+# Compare first
+    if(exp_data != rd_xtn.data_out)
+        `uvm_error("SB", $sformatf("EXP=%0d ACT=%0d", exp_data, rd_xtn.data_out));
 
-// Then update expected for next cycle
-if(ref_q.size() > 0)
-    exp_data = ref_q.pop_front();
+# Then update expected for next cycle
+    if(ref_q.size() > 0)
+        exp_data = ref_q.pop_front();
 ```
 
 ---
@@ -241,9 +241,25 @@ Even a small delta delay can cause misalignment if scoreboard assumes zero laten
 
 ---
 
+## ADDED ASSERTIONS USING _BIND_ METHOD 
+
+### Assertions checked are : 
+- RESET
+- FIFO_FULL
+- FIFO_EMPTY
+- READ_CHECK
+- WRITE_CHECK
+- NO_FULL_EMPTY
+- FULL_DEASSERT
+- SIMULTANEOUS READ & WRITE
+- IF_READ_COUNT_MINUS 
+- IF_WRITE_COUNT_PLUS
+
+## IMPLEMENTED FUNCTIONAL COVERAGE
+- Added _Write_ and _Read_ Side Coverage covering all INPUTS and OUTPUTS
+- Coverage is written inside the _Score Board_
+
 ## FUTURE IMPROVEMENTS
-- Add SystemVerilog Assertions (SVA)
-- Implement Functional Coverage
 - Improve random stress scenarios
 - Modularize UVM components into packages/files
 - Enhance repository structure
@@ -258,7 +274,8 @@ Even a small delta delay can cause misalignment if scoreboard assumes zero laten
 - Scoreboard-based checking and synchronization
 - Debugging timing mismatches
 - Understanding clocking block skew
-
+- Understanding Binding Method for Assertions 
+- How to achieve above 95% Coverage 
 ---
 
 ## FINAL NOTE
