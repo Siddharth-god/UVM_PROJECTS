@@ -274,6 +274,11 @@ Even a small delta delay can cause misalignment if scoreboard assumes zero laten
 - Modularize UVM components into packages/files
 - Enhance repository structure
 
+## ERRORS - IN CODE (NEEDS TO BE FIXED)
+- There is one bug still very persistent (does not break the logic)
+- DUT sending the data to _Scoreboard_ even after fifo is _Empty_ (SB throws erros in the end).
+- Coverage is not fully covered - 95% coverage ==> 100% needs to be done. 
+
 ---
 
 ## LEARNING OBJECTIVES
