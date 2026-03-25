@@ -86,6 +86,7 @@ Test
 
 ---
 
+
 ## TEST SCENARIOS IMPLEMENTED
 
 ### 1. Burst Write
@@ -102,22 +103,24 @@ Test
 
 ---
 
+
 ## SCOREBOARD
 
 A **queue-based reference model** is implemented in the scoreboard.
 
 ### Functional Model
-- Write operation → push_back() into reference queue
-- Read operation → pop_front() from reference queue
+- Write operation → push_back() into reference queue (only when **not full**)
+- Read operation → pop_front() from reference queue (only when **not empty**)
 - DUT output is compared with expected reference output
 
 ### Comparison
+- Comparison is performed **only for valid read operations**
 - Match → Info message
 - Mismatch → Error reported
 
 ---
 
-## TIMING ALIGNMENT (IMPORTANT LEARNING)
+## TIMING ALIGNMENT (IMPORTANT LEARNING) - WORKING METHODS
 
 A key issue observed during verification was **data misalignment due to clocking block sampling skew**.
 
@@ -126,6 +129,10 @@ A key issue observed during verification was **data misalignment due to clocking
 - This introduces a delta-cycle delay
 - Scoreboard assumed zero-cycle latency
 - Result → mismatch between expected and actual data
+
+### Fix Applied
+- Proper clocking block alignment ensured monitor samples synchronized data
+- Scoreboard updated to reflect actual DUT behavior
 
 ---
 
@@ -211,11 +218,6 @@ Reason:
 
 ---
 
-### Key Insight
-A scoreboard is not just logic — it is a timing model of the DUT
-
----
-
 ## CLOCKING BLOCK UNDERSTANDING
 
 ### Default Behavior
@@ -223,14 +225,145 @@ A scoreboard is not just logic — it is a timing model of the DUT
 - output skew = #0
 
 ### Important Clarification Learned
-Sampling always happens after posedge, not before (Theoritical and Practical Differences).
+Sampling always happens after posedge.
 
-- input #0 → sample immediately after clock edge
-- input #1step → sample slightly after clock edge (delta delay)
-- input #1 → sample later (time unit delay)
+- input #0 → sample immediately after clock edge  
+- input #1step → sample slightly after clock edge (delta delay)  
+- input #1 → sample later (time unit delay)  
 
 ### Key Learning
-Even a small delta delay can cause misalignment if scoreboard assumes zero latency.
+Even a small delta delay can cause misalignment if scoreboard assumptions are incorrect.
+
+---
+
+## DEBUGGING THE SCOREBOARD LOGIC – FINAL FIX
+
+During random stress testing, multiple issues were identified and resolved:
+
+### Issues Faced & fixed
+1. Initial Issue – Synchronization
+```
+At the beginning, the primary issue was misalignment between driver and monitor sampling.
+    - The monitor was not sampling signals in sync with DUT updates
+    - This caused incorrect transactions being observed
+
+This was resolved using clocking block alignment, specifically:
+    - using proper sampling skew (#0 → corrected approach)
+
+After fixing this, the environment became cycle-consistent, and basic sequences started working correctly.
+```
+
+2. False Confidence – Limited Testing
+```
+Initially, the FIFO appeared correct because:
+    - Only small sequences were used
+    - No stress or randomness was applied
+
+Once random sequences with higher repeat count and weighted read/write were introduced:
+    - Multiple bugs started appearing
+```
+
+3. Scoreboard Modeling Issues
+```
+The next set of issues came from the scoreboard (reference model):
+    - Incorrect conditions for push/pop
+    - Misalignment with DUT behavior
+    - Improper handling of full and empty
+
+These were fixed by aligning the model strictly with DUT rules:
+    - Push only when: write && !full
+    - Pop only when: read && !empty
+```
+
+4. Critical Bug – Invalid Read Handling
+```
+The most difficult issue was:
+    - Reading when FIFO is empty
+
+This caused mismatches because:
+    - DUT does nothing when read && empty
+    - But scoreboard was still trying to pop and compare
+Attempts made:
+    - Tracking stale/previous data
+    - Using additional flags (stale_data, counters)
+
+# These approaches failed because they tried to predict behavior instead of modeling it
+```
+
+5. Final Fix – Correct Modeling Philosophy
+```
+The solution was to separate:
+
+# Observation (for coverage)
+
+Capture all scenarios:
+    - read && empty
+    - write && full
+
+# Modeling (for correctness)
+
+Only model valid operations:
+    - Push → write && !full
+    - Pop → read && !empty
+
+# Comparison
+
+Compare only when valid pop occurs
+    - Invalid operations were removed from comparison logic
+    - Kept only for coverage
+
+This eliminated all mismatches cleanly.
+```
+
+6. Coverage Refinement
+```
+A final issue was incorrect coverage intent:
+
+Earlier: checking read × full (not meaningful)
+    - Corrected to:
+    - write × full
+    - read × empty
+
+This aligned coverage with actual FIFO behavior and enabled 100% closure.
+```
+
+7. Final Result
+```
+The FIFO verification environment now ensures:
+
+1) Correct data ordering
+2) Proper handling of boundary conditions (full/empty)
+3) No false mismatches from invalid operations
+4) Robust behavior under random stress
+5) Clean and meaningful coverage
+```
+
+### Final Resolution
+- Scoreboard strictly follows DUT rules:
+  - Push → write && !full
+  - Pop → read && !empty
+- Comparison is done only for valid reads
+- Invalid operations are ignored in comparison and used only for coverage
+
+### Key Learning
+Not every observed operation should be compared. Only valid state transitions should be verified.
+
+---
+
+## FUNCTIONAL COVERAGE
+
+- Write-side coverage includes:
+  - write, full, and their interaction  
+- Read-side coverage includes:
+  - read, empty, and their interaction  
+
+### Coverage Insight
+- full is meaningful for write operations  
+- empty is meaningful for read operations  
+- Invalid scenarios are captured for coverage, not comparison  
+
+### Result
+- Achieved 100% functional coverage
 
 ---
 
@@ -255,29 +388,13 @@ Even a small delta delay can cause misalignment if scoreboard assumes zero laten
 - IF_READ_COUNT_MINUS 
 - IF_WRITE_COUNT_PLUS
 
-## IMPLEMENTED FUNCTIONAL COVERAGE
-- Added _Write_ and _Read_ Side Coverage covering all INPUTS and OUTPUTS
-- Coverage is written inside the _Score Board_
-
 ---
 
-## DEBUGGING THE SCOREBOARD LOGIC – UPDATED CODE
-- Fixed multiple issues in the scoreboard logic that were affecting correctness
-- Improved queue handling by adding missing boundary conditions (full/empty awareness)
-- Updated write monitor sampling to include full and empty signals, ensuring accurate expected data generation
-- Added _copy()_ method for transaction handling (currently unused, may be removed later if not required)
-- Enhanced coverage model to better reflect functional behavior and corner cases
-
-
 ## FUTURE IMPROVEMENTS
-- Improve random stress scenarios
+- Add overflow and underflow detection
+- Extend assertions for error conditions
 - Modularize UVM components into packages/files
 - Enhance repository structure
-
-## ERRORS - IN CODE (NEEDS TO BE FIXED)
-- There is one bug still very persistent (does not break the logic)
-- DUT sending the data to _Scoreboard_ even after fifo is _Empty_ (SB throws erros in the end).
-- Coverage is not fully covered - 95% coverage ==> 100% needs to be done. 
 
 ---
 
@@ -290,10 +407,10 @@ Even a small delta delay can cause misalignment if scoreboard assumes zero laten
 - Debugging timing mismatches
 - Understanding clocking block skew
 - Understanding Binding Method for Assertions 
-- How to achieve above 95% Coverage 
+- Achieving 100% functional coverage
+
 ---
 
 ## FINAL NOTE
-
 Correct verification depends not only on logic,  
-but also on accurate timing alignment between DUT and testbench.
+but on aligning observation, modeling, and comparison with actual DUT behavior.
