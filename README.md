@@ -42,14 +42,12 @@ The verification environment is implemented using **SystemVerilog UVM** with a m
 ## PROJECT STRUCTURE
 The environment is modularized into a standard UVM directory structure:
 ```bash
-    ├── rtl/               # FIFO SystemVerilog RTL
-    ├── tb/                # Top-level Testbench & Interface
-    ├── tests/             # UVM Test Library
-    ├── uvm_env/           # Environment, Scoreboard, and Virtual Sequencer
+    ├── rtl/               # FIFO SystemVerilog RTL & Interface & SVA
+    ├── tb/                # Top-level Testbench & Environment, Scoreboard, and Virtual Sequencer
+    ├── tests/             # UVM Test Library & Package
     ├── write_agent/       # Write Agent (Sequencer, Driver, Monitor)
     ├── read_agent/        # Read Agent (Sequencer, Driver, Monitor)
-    ├── sim/               # Simulation scripts and logs
-    └── assertions/        # SVA Bind files
+    └── sim/               # Simulation scripts and logs
 ```
 ---
 
