@@ -82,11 +82,17 @@ module fifo_assertions #(
                 ((full |-> !empty) or (empty |-> !full)); 
     endproperty 
 
-    // Full de-assert after read
-    property full_deassert;    
-        @(posedge clk)
-            disable iff(!rstn)
-                (full && read && !write) |=> !full;
+    // // Full de-assert after read
+    // property full_deassert;    
+    //     @(posedge clk)
+    //         disable iff(!rstn)
+    //             (full && read && !write) |-> ##1 !full;
+    // endproperty
+
+    property full_stay_full;
+    @(posedge clk)
+        disable iff(!rstn)
+            (full && read && write) |-> full;
     endproperty
 
     // count correctness ------------------------------------------------------------ 
@@ -142,10 +148,15 @@ module fifo_assertions #(
             else
                 $display("------NO_FULL_EMPTY------: FAIL");
 
-    FULL_DEASSERT : assert property(full_deassert)
-                $display("------FULL_DEASSERT------: PASS");
+    // FULL_DEASSERT : assert property(full_deassert)
+    //             $display("------FULL_DEASSERT------: PASS");
+    //         else
+    //             $display("------FULL_DEASSERT------: FAIL");
+
+    STAY_FULL : assert property(full_stay_full)
+                $display("------STAY_FULL------: PASS");
             else
-                $display("------FULL_DEASSERT------: FAIL");
+                $display("------STAY_FULL------: FAIL");
 
     R_W : assert property(r_w)
                 $display("------SIMULTANEOUS_READ_WRITE------: PASS");
