@@ -27,6 +27,7 @@ The FIFO is a **synchronous, parameterized design** supporting configurable data
 - Counter-based tracking of FIFO occupancy
 - Full flag generation
 - Empty flag generation
+- Modularization of UVM components into packages/files
 
 ### Protection against invalid operations
 - Write operation is blocked when FIFO is **FULL**
@@ -37,6 +38,20 @@ The FIFO is a **synchronous, parameterized design** supporting configurable data
 ## VERIFICATION METHODOLOGY
 
 The verification environment is implemented using **SystemVerilog UVM** with a modular and scalable architecture.
+
+## PROJECT STRUCTURE
+The environment is modularized into a standard UVM directory structure:
+```bash
+    ├── rtl/               # FIFO SystemVerilog RTL
+    ├── tb/                # Top-level Testbench & Interface
+    ├── tests/             # UVM Test Library
+    ├── uvm_env/           # Environment, Scoreboard, and Virtual Sequencer
+    ├── write_agent/       # Write Agent (Sequencer, Driver, Monitor)
+    ├── read_agent/        # Read Agent (Sequencer, Driver, Monitor)
+    ├── sim/               # Simulation scripts and logs
+    └── assertions/        # SVA Bind files
+```
+---
 
 ### UVM Components Implemented
 - Transaction (Sequence Item)
@@ -393,7 +408,7 @@ Not every observed operation should be compared. Only valid state transitions sh
 ## FUTURE IMPROVEMENTS
 - Add overflow and underflow detection
 - Extend assertions for error conditions
-- Modularize UVM components into packages/files
+- Implement an Asynchronous FIFO to handle multi-clock domain (CDC) verification.
 - Enhance repository structure
 
 ---
