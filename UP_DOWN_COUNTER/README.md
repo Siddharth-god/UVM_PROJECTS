@@ -9,6 +9,20 @@ load, increment, and decrement operations.
 
 ---
 
+## Improvement 
+
+- Segrigated the single file into dedicated folders 
+
+## Project Structure
+```bash
+    ├── rtl/               # UDM SystemVerilog RTL & Interface & SVA
+    ├── tb/                # Top-level Testbench & Environment, Scoreboard, and Virtual Sequencer
+    ├── tests/             # UVM Test Library & Package
+    ├── write_agent/       # In Agent (Sequencer, Driver, Monitor)
+    ├── read_agent/        # Out Agent (Monitor)
+    └── sim/               # Simulation scripts and logs - ignored 
+```
+
 ## Key Concepts Learned
 
 - Synchronization between DUT output and expected output
